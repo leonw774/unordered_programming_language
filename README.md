@@ -1,6 +1,6 @@
 # unordered_programming_language
 
-This thing encodes Python 3 code into a unordered multi-set representation and can decode it back and execute it.
+This thing encodes Python 3 code into an unordered multi-set representation and can decode it back and execute it.
 
 Inspired by [Can a language have free phoneme order?](https://www.youtube.com/watch?v=0a27tS3ltFc) by Kat Mistberg
 
