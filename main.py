@@ -1,16 +1,31 @@
 import argparse
-import itertools
 import random
 import string
 import tokenize
 
 from collections import Counter
+from itertools import product, zip_longest
 
 from pyprimesieve import primes_nth
 
-NON_WS_PRINTABLES = string.digits + string.ascii_letters + string.punctuation
-# ALPHABET = NON_WS_PRINTABLES
-ALPHABET = [l + r for l, r in itertools.product(NON_WS_PRINTABLES, repeat=2)]
+# get all non-whitespace printable chars in a "messy" order
+NON_WS_PRINTABLES = [
+    c
+    for cs in zip_longest(
+        string.ascii_letters, reversed(string.digits), string.punctuation
+    )
+    for c in cs if c is not None
+]
+# use the product of our "messy" printables, also in "messy" order
+CHAR_PRODUCT = [l + r for l, r in product(NON_WS_PRINTABLES, repeat=2)]
+ALPHABET = [
+    p
+    for ps in zip_longest(
+        CHAR_PRODUCT[:2048], CHAR_PRODUCT[2048:4096], CHAR_PRODUCT[4096:6144],
+        CHAR_PRODUCT[6144:]
+    )
+    for p in ps if p is not None
+]
 VEC_SIZE = len(ALPHABET)
 
 def u4s_to_vec(xs: list[int]):
@@ -31,19 +46,18 @@ def vec_to_u4s(vec: list[int], length: int):
         xs.append(x)
     return xs
 
-
 def token_info_to_u4s(ttype: int, tstr: str) -> int:
-    # encode type -> uint4
-    u4s = [ttype // 16, ttype % 16]
-    # encode str -> uint4
+    # encode type -> 3-bit numbers
+    u4s = [ttype // 64, (ttype // 8) % 8, ttype % 8]
+    # encode str -> 3-bit numbers
     u4s += [
         x
         for byte in tstr.encode()
-        for x in [byte // 16, byte % 16]
+        for x in [byte // 64, (byte // 8) % 8, byte % 8]
     ]
     # encode length -> 3-bit variable-length quantity encoding
     length_u4s = []
-    length = len(u4s) - 2 # because type always use 2
+    length = (len(u4s) - 3) // 3 # the length of tstr in bytes
     if length == 0:
         length_u4s = [0]
     else:
@@ -70,50 +84,16 @@ def u4s_to_token_infos(u4s):
                 length = length * 8 + val
                 break
         # decode type
-        ttype = u4s[i] * 16 + u4s[i+1]
-        i += 2
+        ttype = u4s[i] * 64 + u4s[i+1] * 8 + u4s[i+2]
+        i += 3
         # decode string
         str_bytes = []
-        for k in range(length):
-            b = u4s[i]
-            i += 1
-            if k % 2 == 0:
-                str_bytes.append(b * 16)
-            else:
-                str_bytes[-1] += b
+        for _ in range(length):
+            str_bytes.append(u4s[i] * 64 + u4s[i+1] * 8 + u4s[i+2])
+            i += 3
         tstr = bytes(str_bytes).decode(errors='ignore')
         token_infos.append((ttype, tstr))
     return token_infos
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    subparser = parser.add_subparsers(dest='command')
-    enc_parser = subparser.add_parser('enc')
-    enc_parser.add_argument(
-        'input_file',
-        type=str
-    )
-    enc_parser.add_argument(
-        'output_file',
-        type=str
-    )
-
-    dec_parser = subparser.add_parser('dec')
-    dec_parser.add_argument(
-        'input_file',
-        type=str
-    )
-    dec_parser.add_argument(
-        'output_file',
-        type=str
-    )
-
-    exec_parser = subparser.add_parser('exec')
-    exec_parser.add_argument(
-        'input_file',
-        type=str
-    )
-    return parser.parse_args()
 
 def encode(token_infos: list[tokenize.TokenInfo]) -> str:
     # minimize
@@ -162,6 +142,36 @@ def decode(length: int, chars: str) -> list[tokenize.TokenInfo]:
     # print(mini_token_infos)
     return mini_token_infos
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    subparser = parser.add_subparsers(dest='command')
+    enc_parser = subparser.add_parser('enc')
+    enc_parser.add_argument(
+        'input_file',
+        type=str
+    )
+    enc_parser.add_argument(
+        'output_file',
+        type=str
+    )
+
+    dec_parser = subparser.add_parser('dec')
+    dec_parser.add_argument(
+        'input_file',
+        type=str
+    )
+    dec_parser.add_argument(
+        'output_file',
+        type=str
+    )
+
+    exec_parser = subparser.add_parser('exec')
+    exec_parser.add_argument(
+        'input_file',
+        type=str
+    )
+    return parser.parse_args()
+
 def main():
     args = parse_args()
     mode = args.command
@@ -172,21 +182,19 @@ def main():
             token_infos = [token for token in tokenize.tokenize(f.readline)]
         length, chars = encode(token_infos)
         with open(args.output_file, 'w+', encoding='utf8') as f:
-            f.write(repr(length) + '\n')
+            f.write(repr(length) + ' ')
             f.write(''.join(chars))
 
     if mode == 'dec':
         with open(args.input_file, 'r', encoding='utf8') as f:
-            length = int(f.readline())
-            chars = f.readline()
+            length, chars = f.read().strip().split(' ', 1)
         with open(args.output_file, 'w', encoding='utf8') as f:
-            f.write(tokenize.untokenize(decode(length, chars)))
+            f.write(tokenize.untokenize(decode(int(length), chars)))
 
     if mode == 'exec':
         with open(args.input_file, 'r', encoding='utf8') as f:
-            length = int(f.readline())
-            chars = f.readline()
-        exec(tokenize.untokenize(decode(length, chars)))
+            length, chars = f.read().strip().split()
+        exec(tokenize.untokenize(decode(int(length), chars)))
 
 if __name__ == "__main__":
     main()
