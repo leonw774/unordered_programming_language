@@ -34,16 +34,20 @@ def u4s_to_vec(xs: list[int]):
         vec[i % VEC_SIZE] *= primes_nth((i // VEC_SIZE) + 1) ** x
     return vec
 
-def vec_to_u4s(vec: list[int], length: int):
+def vec_to_u4s(vec: list[int]):
     xs = []
-    for i in range(length):
+    i = 0
+    while True:
         v = vec[i % VEC_SIZE]
         p = primes_nth((i // VEC_SIZE) + 1)
         x = 0
         while v % p == 0:
             v //= p
             x += 1
+        if x == 0:
+            break
         xs.append(x)
+        i += 1
     return xs
 
 def token_info_to_u4s(ttype: int, tstr: str) -> int:
@@ -55,19 +59,20 @@ def token_info_to_u4s(ttype: int, tstr: str) -> int:
         for byte in tstr.encode()
         for x in [byte // 64, (byte // 8) % 8, byte % 8]
     ]
-    # encode length -> 3-bit variable-length quantity encoding
+    # encode length -> 2-bit variable-length quantity encoding
     length_u4s = []
     length = (len(u4s) - 3) // 3 # the length of tstr in bytes
     if length == 0:
         length_u4s = [0]
     else:
         while length > 0:
-            r = length % 8
-            length //= 8
+            r = length % 4
+            length //= 4
             length_u4s = [r] + length_u4s
-    # add 8 to all lengths except the last one
-    length_u4s = [x + 8 for x in length_u4s[:-1]] + [length_u4s[-1]]
-    return [s for s in (length_u4s + u4s)]
+    # add 4 to all lengths except the last one
+    length_u4s = [x + 4 for x in length_u4s[:-1]] + [length_u4s[-1]]
+    # finally, all add 1 so that there are no zero
+    return [u + 1 for u in (length_u4s + u4s)]
 
 def u4s_to_token_infos(u4s):
     i = 0
@@ -76,20 +81,21 @@ def u4s_to_token_infos(u4s):
         # decode length
         length = 0
         while True:
-            val = u4s[i]
+            val = u4s[i] - 1
             i += 1
-            if val >= 8:
-                length = length * 8 + (val - 8)
+            if val >= 4:
+                length = length * 4 + (val - 4)
             else:
-                length = length * 8 + val
+                length = length * 4 + val
                 break
         # decode type
-        ttype = u4s[i] * 64 + u4s[i+1] * 8 + u4s[i+2]
+        ttype = (u4s[i] - 1) * 64 + (u4s[i+1] - 1) * 8 + (u4s[i+2] - 1)
         i += 3
         # decode string
         str_bytes = []
         for _ in range(length):
-            str_bytes.append(u4s[i] * 64 + u4s[i+1] * 8 + u4s[i+2])
+            byte = (u4s[i] - 1) * 64 + (u4s[i+1] - 1) * 8 + (u4s[i+2] - 1)
+            str_bytes.append(byte)
             i += 3
         tstr = bytes(str_bytes).decode(errors='ignore')
         token_infos.append((ttype, tstr))
@@ -131,12 +137,12 @@ def encode(token_infos: list[tokenize.TokenInfo]) -> str:
     random.shuffle(char_lists)
     return len(token_u4s), (''.join(char_lists))
 
-def decode(length: int, chars: str) -> list[tokenize.TokenInfo]:
+def decode(chars: str) -> list[tokenize.TokenInfo]:
     # count occurrences of each ALPHABET element
     counts = Counter([chars[i:i+2] for i in range(0, len(chars), 2)])
     vec = [counts.get(a, 0) + 1 for a in ALPHABET]
     # print(vec)
-    token_u4s = vec_to_u4s(vec, length)
+    token_u4s = vec_to_u4s(vec)
     # print(token_u4s)
     mini_token_infos = u4s_to_token_infos(token_u4s)
     # print(mini_token_infos)
@@ -182,19 +188,18 @@ def main():
             token_infos = [token for token in tokenize.tokenize(f.readline)]
         length, chars = encode(token_infos)
         with open(args.output_file, 'w+', encoding='utf8') as f:
-            f.write(repr(length) + ' ')
             f.write(''.join(chars))
 
     if mode == 'dec':
         with open(args.input_file, 'r', encoding='utf8') as f:
-            length, chars = f.read().strip().split(' ', 1)
+            chars = f.read()
         with open(args.output_file, 'w', encoding='utf8') as f:
-            f.write(tokenize.untokenize(decode(int(length), chars)))
+            f.write(tokenize.untokenize(decode(chars)))
 
     if mode == 'exec':
         with open(args.input_file, 'r', encoding='utf8') as f:
-            length, chars = f.read().strip().split()
-        exec(tokenize.untokenize(decode(int(length), chars)))
+            chars = f.read()
+        exec(tokenize.untokenize(decode(chars)))
 
 if __name__ == "__main__":
     main()
