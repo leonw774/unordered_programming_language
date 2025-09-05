@@ -135,8 +135,8 @@ def encode(token_infos: list[tokenize.TokenInfo]) -> str:
         for _ in range(n - 1)
     ]
     # print(len(char_indices))
-    if len(char_indices) > 100_000: # 200 MB
-        print("result too large. program ends without output.")
+    if len(char_indices) > 10_000_000: # 20 MB
+        print("result too large (> 20MB). program ends without output.")
         exit()
     random.shuffle(char_indices)
     return ''.join(ALPHABET[i] for i in char_indices)
