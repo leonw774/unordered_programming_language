@@ -8,12 +8,12 @@ Inspired by [Can a language have free phoneme order?](https://www.youtube.com/wa
 
 `main.py enc input_file output_file`
 
-- Encode the Python 3 code from `input_file` to uncodered characters and write it to `output_file`.
+- Encode the Python 3 code from `input_file` to unordered characters and write it to `output_file`.
 
 `main.py dec input_file output_file`
 
-- Decode the uncodered characters from `input_file` to Python 3 code and write it to `output_file`.
+- Decode the unordered characters from `input_file` to Python 3 code and write it to `output_file`.
 
 `main.py exec input_file`
 
-- Execute the uncodered characters from `input_file` after decoded it to Python 3 code.
+- Execute after decoding the unordered characters from `input_file` to Python 3 code.
