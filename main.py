@@ -129,13 +129,17 @@ def encode(token_infos: list[tokenize.TokenInfo]) -> str:
     vec = u4s_to_vec(token_u4s)
     # print(vec)
     # generate pairs accordding to vec
-    char_lists = [
-        c
+    char_indices = [
+        i
         for i, n in enumerate(vec) if n != 1
-        for c in ([ALPHABET[i]] * (n - 1))
+        for _ in range(n - 1)
     ]
-    random.shuffle(char_lists)
-    return len(token_u4s), (''.join(char_lists))
+    # print(len(char_indices))
+    if len(char_indices) > 100_000: # 200 MB
+        print("result too large. program ends without output.")
+        exit()
+    random.shuffle(char_indices)
+    return ''.join(ALPHABET[i] for i in char_indices)
 
 def decode(chars: str) -> list[tokenize.TokenInfo]:
     # count occurrences of each ALPHABET element
@@ -186,9 +190,9 @@ def main():
         token_infos = []
         with open(args.input_file, 'rb') as f:
             token_infos = [token for token in tokenize.tokenize(f.readline)]
-        length, chars = encode(token_infos)
+        chars = encode(token_infos)
         with open(args.output_file, 'w+', encoding='utf8') as f:
-            f.write(''.join(chars))
+            f.write(chars)
 
     if mode == 'dec':
         with open(args.input_file, 'r', encoding='utf8') as f:
