@@ -163,7 +163,7 @@ def encode(token_infos: list[tokenize.TokenInfo]) -> str:
     chars_count = sum(n - 1 for n in vec)
     if debug_flag:
         print('char#:', chars_count)
-    if chars_count > 1000_000:
+    if chars_count > 1_000_000:
         print('result too large: output the vector instead')
         return repr(vec)
     # generate chars according to vec
